@@ -1,4 +1,4 @@
-import { AbstractInputSuggest, App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from "obsidian";
+import { AbstractInputSuggest, App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from "obsidian";
 import { TaskRegularExpressions } from "utils/tasks";
 import TasksCalendarWrapper from "./main";
 const sortOptions = {
@@ -180,30 +180,35 @@ export const defaultUserOptions = {
      */
 	convert24HourTimePrefix: false as boolean,
     /**
-     * Specify an archive file path to move completed tasks to when using the "Archive this task" context menu option.
+     * Specify a folder path where completed tasks will be archived.
+     * The archive file name is derived from the task's completion date using archiveFileFormat.
      */
-    archiveFile: '' as string,
+    archiveFolder: '' as string,
+    /**
+     * Moment.js format string for the archive file name (without extension), e.g. YYYY-MM-DD.
+     */
+    archiveFileFormat: 'YYYY-MM-DD' as string,
 };
 export type UserOption = typeof defaultUserOptions;
 
-class FileSuggest extends AbstractInputSuggest<TFile> {
+class FolderSuggest extends AbstractInputSuggest<TFolder> {
     constructor(app: App, inputEl: HTMLInputElement) {
         super(app, inputEl);
     }
 
-    getSuggestions(query: string): TFile[] {
+    getSuggestions(query: string): TFolder[] {
         const lower = query.toLowerCase();
-        return this.app.vault.getMarkdownFiles()
-            .filter(f => f.path.toLowerCase().includes(lower))
+        return this.app.vault.getAllLoadedFiles()
+            .filter((f): f is TFolder => f instanceof TFolder && f.path.toLowerCase().includes(lower))
             .slice(0, 20);
     }
 
-    renderSuggestion(file: TFile, el: HTMLElement): void {
-        el.setText(file.path);
+    renderSuggestion(folder: TFolder, el: HTMLElement): void {
+        el.setText(folder.path);
     }
 
-    selectSuggestion(file: TFile): void {
-        this.setValue(file.path);
+    selectSuggestion(folder: TFolder): void {
+        this.setValue(folder.path);
         this.close();
     }
 }
@@ -532,14 +537,28 @@ export class TasksCalendarSettingTab extends PluginSettingTab {
         containerEl.createEl("h2", { text: "Other Settings" })
 
         new Setting(containerEl)
-            .setName("Archive File")
-            .setDesc("Specify a file path to archive completed tasks to. \
-                When set, a 'Archive this task' option will appear in the right-click menu for completed tasks.")
+            .setName("Archive Folder")
+            .setDesc("Specify the folder where completed tasks will be archived. \
+                When set, right-clicking a completed task shows an 'Archive this task' option. \
+                The archive file is named using the task's completion date and the format below.")
             .addText(t => {
-                t.setPlaceholder("e.g.: Archive.md or folder/Archive.md");
-                t.setValue(this.plugin.userOptions.archiveFile);
-                t.onChange(async v => await this.onOptionUpdate({ archiveFile: v.trim() }));
-                new FileSuggest(this.app, t.inputEl);
+                t.setPlaceholder("e.g.: Archive or Projects/Archive");
+                t.setValue(this.plugin.userOptions.archiveFolder);
+                t.onChange(async v => await this.onOptionUpdate({ archiveFolder: v.trim() }));
+                new FolderSuggest(this.app, t.inputEl);
+            })
+
+        new Setting(containerEl)
+            .setName("Archive File Format")
+            .setDesc(TasksCalendarSettingTab.createFragmentWithHTML(
+                "Moment.js format for the archive file name (without extension). \
+                The task's completion date is used — defaults to today if the task has no completion date. \
+                See <a href=https://momentjs.com/docs/#/displaying/format/>docs of moment.js</a> for format options."
+            ))
+            .addMomentFormat(m => {
+                m.setPlaceholder("e.g.: YYYY-MM-DD");
+                m.setValue(this.plugin.userOptions.archiveFileFormat);
+                m.onChange(async v => await this.onOptionUpdate({ archiveFileFormat: v || 'YYYY-MM-DD' }));
             })
 
         new Setting(containerEl)

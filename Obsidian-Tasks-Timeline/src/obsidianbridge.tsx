@@ -181,12 +181,17 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
         })
     }
 
-    handleArchiveTask(path: string, position: Pos) {
-        const archiveFile = this.state.userOptions.archiveFile;
-        if (!archiveFile) {
-            new Notice("No archive file configured. Please set one in the plugin settings.", 5000);
+    handleArchiveTask(path: string, position: Pos, item: TaskDataModel) {
+        const { archiveFolder, archiveFileFormat } = this.state.userOptions;
+        if (!archiveFolder) {
+            new Notice("No archive folder configured. Please set one in the plugin settings.", 5000);
             return;
         }
+        const completionDate = item.completion ? item.completion : moment();
+        const fileName = completionDate.format(archiveFileFormat || 'YYYY-MM-DD') + '.md';
+        const folder = archiveFolder.replace(/\/$/, '');
+        const archiveFilePath = folder + '/' + fileName;
+
         this.app.vault.adapter.read(path).then(content => {
             const lines = content.split('\n');
             const taskLine = lines[position.start.line];
@@ -196,20 +201,27 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
             }
             // Remove the task line from the source file
             lines.splice(position.start.line, 1);
-            // Remove a trailing blank line left behind, if any
+            // Collapse any triple+ blank lines left behind
             const newContent = lines.join('\n').replace(/\n{3,}/g, '\n\n');
 
-            this.app.vault.adapter.exists(archiveFile).then(exists => {
+            this.app.vault.adapter.exists(archiveFilePath).then(exists => {
                 const writeSource = this.app.vault.adapter.write(path, newContent);
                 const appendToArchive = exists
-                    ? this.app.vault.adapter.read(archiveFile).then(archiveContent => {
+                    ? this.app.vault.adapter.read(archiveFilePath).then(archiveContent => {
                         const separator = archiveContent.endsWith('\n') ? '' : '\n';
-                        return this.app.vault.adapter.write(archiveFile, archiveContent + separator + taskLine + '\n');
+                        return this.app.vault.adapter.write(archiveFilePath, archiveContent + separator + taskLine + '\n');
                     })
-                    : this.app.vault.create(archiveFile, taskLine + '\n');
+                    : this.app.vault.adapter.exists(folder).then(folderExists => {
+                        if (folderExists) {
+                            return this.app.vault.create(archiveFilePath, taskLine + '\n');
+                        }
+                        return this.app.vault.createFolder(folder).then(() =>
+                            this.app.vault.create(archiveFilePath, taskLine + '\n')
+                        );
+                    });
 
                 Promise.all([writeSource, appendToArchive]).then(() => {
-                    new Notice("Task archived successfully.");
+                    new Notice(`Task archived to ${archiveFilePath}`);
                 }).catch(reason => {
                     new Notice("Error archiving task: " + reason, 5000);
                 });
@@ -226,7 +238,7 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
                 menuItem
                     .setTitle("Archive this task")
                     .setIcon('archive')
-                    .onClick(() => this.handleArchiveTask(path, position));
+                    .onClick(() => this.handleArchiveTask(path, position, item));
             });
         }
 
