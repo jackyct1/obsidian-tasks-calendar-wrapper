@@ -36,7 +36,7 @@
 	border-radius: 10px;
 	cursor: pointer;
 }
-.taskido .details.today {
+.taskido .details.taskido-today {
 	padding: 30px 0;
 }
 .taskido .counters {
@@ -395,22 +395,22 @@
 .taskido.noColor .task .file { color: var(--text-muted) !important }
 .taskido.noColor .task .info .file { color: var(--text-muted) !important }
 /* Focus */
-.taskido.todayFocus .details:not(.today),
+.taskido.todayFocus .details:not(.taskido-today),
 .taskido.todayFocus .year { display: none !important; }
-.taskido.todayFocus .details.today { padding: 0; }
-.taskido.todoFocus .details.today .task.due,
-.taskido.todoFocus .details.today .task.scheduled,
-.taskido.todoFocus .details.today .task.process,
-.taskido.todoFocus .details.today .task.start,
+.taskido.todayFocus .details.taskido-today { padding: 0; }
+.taskido.todoFocus .details.taskido-today .task.due,
+.taskido.todoFocus .details.taskido-today .task.scheduled,
+.taskido.todoFocus .details.taskido-today .task.process,
+.taskido.todoFocus .details.taskido-today .task.start,
 .taskido.overdueFocus .task.overdue,
 .taskido.unplannedFocus .task.unplanned { background: hsla(var(--interactive-accent-hsl), 0.2); }
 /* Filter */
 .taskido.todoFilter .year:not(.current):not([data-types*="due"][data-types*="scheduled"][data-types*="overdue"]) { display: none; }
-.taskido.todoFilter .details:not(.today):not([data-types*="due"][data-types*="scheduled"][data-types*="overdue"]) { display: none; }
+.taskido.todoFilter .details:not(.taskido-today):not([data-types*="due"][data-types*="scheduled"][data-types*="overdue"]) { display: none; }
 .taskido.todoFilter .task:not(.due, .scheduled, .process, .start) { display: none; }
 .taskido.overdueFilter .year:not(.current):not([data-types*="overdue"]) { display: none; }
-.taskido.overdueFilter .details:not(.today):not([data-types*="overdue"]) { display: none; }
+.taskido.overdueFilter .details:not(.taskido-today):not([data-types*="overdue"]) { display: none; }
 .taskido.overdueFilter .task:not(.overdue) { display: none; }
 .taskido.unplannedFilter .year:not(.current):not([data-types*="unplanned"]) { display: none; }
-.taskido.unplannedFilter .details:not(.today):not([data-types*="unplanned"]) { display: none; }
+.taskido.unplannedFilter .details:not(.taskido-today):not([data-types*="unplanned"]) { display: none; }
 .taskido.unplannedFilter .task:not(.unplanned) { display: none; }
