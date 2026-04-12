@@ -4,11 +4,14 @@
 	"description": "This is a simple wrapper for Obsidian-Tasks-Calendar (https://github.com/702573N/Obsidian-Tasks-Calendar) and Obsidian-Tasks-Timeline (https://github.com/702573N/Obsidian-Tasks-Timeline).",
 	"main": "src/main.ts",
 	"scripts": {
-		"dev": "cp manifest.json ExampleVault/.obsidian/plugins/tasks-view/ && node esbuild.config.mjs",
+		"dev:mkdir": "if not exist ExampleVault\\.obsidian\\plugins\\tasks-view mkdir ExampleVault\\.obsidian\\plugins\\tasks-view",
+		"dev:copy-manifest": "copy manifest.json ExampleVault\\.obsidian\\plugins\\tasks-view\\",
+		"dev:copy-styles": "copy styles.css ExampleVault\\.obsidian\\plugins\\tasks-view\\",
+		"dev": "pnpm dev:mkdir && pnpm dev:copy-manifest && pnpm dev:copy-styles && node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
-		"eslint": "npx eslint */**.ts",
-		"eslint:fix": "npx eslint --fix */**.ts ; exit 0"
+		"eslint": "npx eslint \"**/*.ts\"",
+		"eslint:fix": "npx eslint --fix \"**/*.ts\" & exit 0"
 	},
 	"keywords": [],
 	"author": "",
@@ -19,6 +22,7 @@
 		"@types/luxon": "^3.2.0",
 		"@types/node": "^16.11.6",
 		"@types/parsimmon": "^1.10.6",
+		"@types/react": "^19.2.14",
 		"@types/react-dom": "^18.0.11",
 		"@typescript-eslint/eslint-plugin": "5.29.0",
 		"@typescript-eslint/parser": "5.29.0",
@@ -26,6 +30,7 @@
 		"emoji-regex": "^10.2.1",
 		"esbuild": "0.17.3",
 		"luxon": "^3.2.1",
+		"moment": "^2.30.1",
 		"obsidian": "latest",
 		"parsimmon": "^1.18.1",
 		"tslib": "2.4.0",
