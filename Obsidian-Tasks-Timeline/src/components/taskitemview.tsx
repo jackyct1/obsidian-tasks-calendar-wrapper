@@ -63,7 +63,12 @@ export class TaskItemView extends React.Component<TaskItemProps, TaskItemState> 
                             ({ dateFormat, hideTags, useBuiltinStyle }) =>
                             (<div data-line={line} data-task={item.statusMarker} data-col={col} data-link={link} data-dailynote={isDailyNote}
                                 className={`task ${item.status}`}
-                                style={{ "--task-color": color || "var(--text-muted)" } as React.CSSProperties} aria-label={ariaLabel}>
+                                style={{ "--task-color": color || "var(--text-muted)" } as React.CSSProperties} aria-label={ariaLabel}
+                                onContextMenu={(e) => {
+                                    if (callbacks.handleContextMenu) {
+                                        callbacks.handleContextMenu(e, path, position, item);
+                                    }
+                                }}>
                                 <StripWithIcon onToggle={onToggleTask} useBuiltinStyle={useBuiltinStyle}
                                     marker={item.statusMarker} status={item.status} />
                                 <div className='lines' onClick={openTaskFile}>

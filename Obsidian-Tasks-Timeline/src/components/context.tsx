@@ -34,4 +34,5 @@ export const TaskItemEventHandlersContext = React.createContext({
     handleCompleteTask: (filePath: string, position: Pos) => { },
     handleTagClick: (tag: string) => { },
     handleModifyTask: undefined as any,
+    handleContextMenu: (e: React.MouseEvent, path: string, position: Pos, item: TaskDataModel) => { },
 })

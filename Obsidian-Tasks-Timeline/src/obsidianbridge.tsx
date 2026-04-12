@@ -1,6 +1,6 @@
 import { Model } from 'backbone';
 import moment from 'moment';
-import { App, ItemView, Notice, Pos } from 'obsidian';
+import { App, ItemView, Menu, Notice, Pos } from 'obsidian';
 import * as React from 'react';
 import { UserOption, defaultUserOptions } from '../../src/settings';
 import * as TaskMapable from '../../utils/taskmapable';
@@ -35,6 +35,7 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
         this.onUpdateUserOption = this.onUpdateUserOption.bind(this);
         this.handleModifyTask = this.handleModifyTask.bind(this);
         this.handleFilterEnable = this.handleFilterEnable.bind(this);
+        this.handleContextMenu = this.handleContextMenu.bind(this);
 
         //this.adapter = new ObsidianTaskAdapter(this.app);
 
@@ -179,6 +180,56 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
         })
     }
 
+    handleContextMenu(e: React.MouseEvent, path: string, position: Pos, item: TaskDataModel) {
+        e.preventDefault();
+        const menu = new Menu();
+
+        const todayStr = moment().format('YYYY-MM-DD');
+        const tomorrowStr = moment().add(1, 'days').format('YYYY-MM-DD');
+
+        const isToday = (item.scheduled && item.scheduled.format('YYYY-MM-DD') === todayStr) ||
+                        (item.start && item.start.format('YYYY-MM-DD') === todayStr) ||
+                        (item.due && item.due.format('YYYY-MM-DD') === todayStr);
+
+        let targetDate = '';
+        let label = '';
+        if (isToday) {
+            label = "Postpone to tomorrow";
+            targetDate = tomorrowStr;
+        } else {
+            label = "Schedule to today";
+            targetDate = todayStr;
+        }
+
+        menu.addItem((submenu) => {
+            submenu
+                .setTitle(label)
+                .setIcon('calendar-clock')
+                .onClick(async () => {
+                    this.app.vault.adapter.read(path).then(content => {
+                        const lines = content.split('\n');
+                        let line = lines[position.start.line];
+                        
+                        const scheduledRegex = /[⏳⌛] *(\d{4}-\d{2}-\d{2})/;
+                        if (scheduledRegex.test(line)) {
+                            line = line.replace(scheduledRegex, `⏳ ${targetDate}`);
+                        } else {
+                            line = line + ` ⏳ ${targetDate}`;
+                        }
+                        
+                        lines[position.start.line] = line;
+                        this.app.vault.adapter.write(path, lines.join('\n')).then(() => {
+                            new Notice(`Task ${label.toLowerCase()}!`);
+                        }).catch(reason => {
+                            new Notice("Error when writing tasks: " + reason, 5000);
+                        });
+                    }).catch(reason => new Notice("Error when reading file " + path + "." + reason, 5000));
+                });
+        });
+
+        menu.showAtMouseEvent(e.nativeEvent);
+    }
+
     render(): React.ReactNode {
         console.debug("Now the root node are rendering with: ", this.state.taskList)
         console.debug("Now the root node are reddering with: ", this.state.userOptions)
@@ -195,6 +246,7 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
                     // pass an undefined if the obsidian-tasks-plugin not installed
                     //@ts-ignore
                     handleModifyTask: this.app.plugins.plugins['obsidian-tasks-plugin'] === undefined ? undefined : this.handleModifyTask,
+                    handleContextMenu: this.handleContextMenu,
                 }}>
                     <TimelineView userOptions={this.state.userOptions} taskList={this.state.taskList} />
                 </TaskItemEventHandlersContext.Provider>
