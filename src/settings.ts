@@ -1,4 +1,4 @@
-import { App, Modal, Notice, Plugin, PluginSettingTab, Setting } from "obsidian";
+import { AbstractInputSuggest, App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from "obsidian";
 import { TaskRegularExpressions } from "utils/tasks";
 import TasksCalendarWrapper from "./main";
 const sortOptions = {
@@ -185,6 +185,28 @@ export const defaultUserOptions = {
     archiveFile: '' as string,
 };
 export type UserOption = typeof defaultUserOptions;
+
+class FileSuggest extends AbstractInputSuggest<TFile> {
+    constructor(app: App, inputEl: HTMLInputElement) {
+        super(app, inputEl);
+    }
+
+    getSuggestions(query: string): TFile[] {
+        const lower = query.toLowerCase();
+        return this.app.vault.getMarkdownFiles()
+            .filter(f => f.path.toLowerCase().includes(lower))
+            .slice(0, 20);
+    }
+
+    renderSuggestion(file: TFile, el: HTMLElement): void {
+        el.setText(file.path);
+    }
+
+    selectSuggestion(file: TFile): void {
+        this.setValue(file.path);
+        this.close();
+    }
+}
 
 export class TasksCalendarSettingTab extends PluginSettingTab {
     plugin: TasksCalendarWrapper;
@@ -517,6 +539,7 @@ export class TasksCalendarSettingTab extends PluginSettingTab {
                 t.setPlaceholder("e.g.: Archive.md or folder/Archive.md");
                 t.setValue(this.plugin.userOptions.archiveFile);
                 t.onChange(async v => await this.onOptionUpdate({ archiveFile: v.trim() }));
+                new FileSuggest(this.app, t.inputEl);
             })
 
         new Setting(containerEl)
