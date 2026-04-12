@@ -36,6 +36,7 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
         this.handleModifyTask = this.handleModifyTask.bind(this);
         this.handleFilterEnable = this.handleFilterEnable.bind(this);
         this.handleContextMenu = this.handleContextMenu.bind(this);
+        this.handleArchiveTask = this.handleArchiveTask.bind(this);
 
         //this.adapter = new ObsidianTaskAdapter(this.app);
 
@@ -180,9 +181,54 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
         })
     }
 
+    handleArchiveTask(path: string, position: Pos) {
+        const archiveFile = this.state.userOptions.archiveFile;
+        if (!archiveFile) {
+            new Notice("No archive file configured. Please set one in the plugin settings.", 5000);
+            return;
+        }
+        this.app.vault.adapter.read(path).then(content => {
+            const lines = content.split('\n');
+            const taskLine = lines[position.start.line];
+            if (!taskLine) {
+                new Notice("Could not find task line.", 5000);
+                return;
+            }
+            // Remove the task line from the source file
+            lines.splice(position.start.line, 1);
+            // Remove a trailing blank line left behind, if any
+            const newContent = lines.join('\n').replace(/\n{3,}/g, '\n\n');
+
+            this.app.vault.adapter.exists(archiveFile).then(exists => {
+                const writeSource = this.app.vault.adapter.write(path, newContent);
+                const appendToArchive = exists
+                    ? this.app.vault.adapter.read(archiveFile).then(archiveContent => {
+                        const separator = archiveContent.endsWith('\n') ? '' : '\n';
+                        return this.app.vault.adapter.write(archiveFile, archiveContent + separator + taskLine + '\n');
+                    })
+                    : this.app.vault.create(archiveFile, taskLine + '\n');
+
+                Promise.all([writeSource, appendToArchive]).then(() => {
+                    new Notice("Task archived successfully.");
+                }).catch(reason => {
+                    new Notice("Error archiving task: " + reason, 5000);
+                });
+            }).catch(reason => new Notice("Error checking archive file: " + reason, 5000));
+        }).catch(reason => new Notice("Error reading file " + path + ": " + reason, 5000));
+    }
+
     handleContextMenu(e: React.MouseEvent, path: string, position: Pos, item: TaskDataModel) {
         e.preventDefault();
         const menu = new Menu();
+
+        if (item.statusMarker === 'x') {
+            menu.addItem((menuItem) => {
+                menuItem
+                    .setTitle("Archive this task")
+                    .setIcon('archive')
+                    .onClick(() => this.handleArchiveTask(path, position));
+            });
+        }
 
         const todayStr = moment().format('YYYY-MM-DD');
         const tomorrowStr = moment().add(1, 'days').format('YYYY-MM-DD');

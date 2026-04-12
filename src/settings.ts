@@ -179,6 +179,10 @@ export const defaultUserOptions = {
      * Convert a 24 hour time prefix in task description (15:30) to 12 hour time with am/pm (3:30 pm)
      */
 	convert24HourTimePrefix: false as boolean,
+    /**
+     * Specify an archive file path to move completed tasks to when using the "Archive this task" context menu option.
+     */
+    archiveFile: '' as string,
 };
 export type UserOption = typeof defaultUserOptions;
 
@@ -504,6 +508,17 @@ export class TasksCalendarSettingTab extends PluginSettingTab {
             })
 
         containerEl.createEl("h2", { text: "Other Settings" })
+
+        new Setting(containerEl)
+            .setName("Archive File")
+            .setDesc("Specify a file path to archive completed tasks to. \
+                When set, a 'Archive this task' option will appear in the right-click menu for completed tasks.")
+            .addText(t => {
+                t.setPlaceholder("e.g.: Archive.md or folder/Archive.md");
+                t.setValue(this.plugin.userOptions.archiveFile);
+                t.onChange(async v => await this.onOptionUpdate({ archiveFile: v.trim() }));
+            })
+
         new Setting(containerEl)
             .setName("Date Format")
             .setDesc(TasksCalendarSettingTab.createFragmentWithHTML(
