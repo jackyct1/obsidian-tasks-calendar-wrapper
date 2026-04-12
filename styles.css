@@ -324,9 +324,20 @@ If your plugin does not need CSS, delete this file.
 }
 
 .taskido .task .info .tag {
-	color: var(--tag-color) !important;
-	background: none !important;
-	cursor: pointer;
+	color: white !important;
+	background: var(--tag-color) !important;
+}
+
+.taskido .task .info .priority {
+	color: red !important;
+	background-color: #FFEB3B !important;
+}
+
+.taskido .task .info .tag,
+.taskido .task .info .priority {
+	font-size: 14px;
+	font-weight: bold;
+	padding: 5px;
 }
 
 .taskido .info .icon {
@@ -598,4 +609,9 @@ If your plugin does not need CSS, delete this file.
 
 .taskido.unplannedFilter .task:not(.unplanned) {
 	display: none;
+}
+
+.taskido.settings .task:hover {
+	background: transparent !important;
+	box-shadow: none !important;
 }

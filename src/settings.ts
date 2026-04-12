@@ -405,13 +405,13 @@ export class TasksCalendarSettingTab extends PluginSettingTab {
 
         const tagSettings = new Setting(containerEl);
         tagSettings.controlEl.empty();
-        tagSettings.controlEl.appendChild(createEl('div'));
-        let tagBadgeSetting = new Setting(tagSettings.controlEl.firstChild as HTMLElement);
+        const tagWrapper = tagSettings.controlEl.createDiv({ cls: "taskido settings" }).createDiv({ cls: "task" }).createDiv({ cls: "info" });
+        let tagBadgeSetting = new Setting(tagWrapper);
         if (this.plugin.userOptions.useTags) {
             Object.entries(this.plugin.userOptions.tagColorPalette).forEach(([tag, color], index) => {
                 if (index !== 0 && !(index & 0x01))
-                    tagBadgeSetting = new Setting(tagSettings.controlEl.firstChild as HTMLElement);
-                tagBadgeSetting.controlEl.appendChild(createEl('div', { cls: "tag", text: `${tag}`, attr: { style: `color: ${color}` } }));
+                    tagBadgeSetting = new Setting(tagWrapper);
+                tagBadgeSetting.controlEl.appendChild(createEl('div', { cls: "tag", text: `${tag}`, attr: { style: `--tag-color: ${color}` } }));
                 tagBadgeSetting
                     .addExtraButton(async btn => {
                         btn.setIcon("cross")
@@ -689,8 +689,8 @@ export class TasksCalendarSettingTab extends PluginSettingTab {
             .setName(name)
             .setDesc(desc)
         tagsSetting.controlEl.empty();
-        tagsSetting.controlEl.appendChild(createDiv());
-        let tagsSettingControlEl = new Setting(tagsSetting.controlEl.firstChild as HTMLElement);
+        const tagsWrapper = tagsSetting.controlEl.createDiv({ cls: "taskido settings" }).createDiv({ cls: "task" }).createDiv({ cls: "info" });
+        let tagsSettingControlEl = new Setting(tagsWrapper);
         tags.forEach((t, i) => {
             if (i !== 0 && i % 3 === 0) tagsSettingControlEl = new Setting(tagsSetting.controlEl.firstChild as HTMLElement);
             tagsSettingControlEl.controlEl.appendChild(createEl('div', { cls: "tag", text: t }));
