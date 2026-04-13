@@ -18,6 +18,7 @@ export const UserOptionContext = React.createContext({
     hideTags: [] as string[],
     forward: false as boolean,
     useBuiltinStyle: true as boolean,
+    sort: "(t1, t2) => t1.order <= t2.order ? -1 : 1" as string,
 });
 
 export const QuickEntryHandlerContext = React.createContext({

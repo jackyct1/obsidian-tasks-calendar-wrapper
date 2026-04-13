@@ -137,6 +137,7 @@ export class TimelineView extends React.Component<TimelineProps, TimelineStates>
                         select: this.props.userOptions.inbox,
                         forward: this.props.userOptions.forward,
                         useBuiltinStyle: this.props.userOptions.useBuiltinStyle,
+                        sort: this.props.userOptions.sort,
                         counters: [
                             {
                                 onClick: () => { this.handleCounterFilterClick('todoFilter') },

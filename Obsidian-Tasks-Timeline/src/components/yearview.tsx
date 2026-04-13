@@ -2,7 +2,7 @@ import moment, { Moment } from 'moment';
 import * as React from 'react';
 import * as TaskMapable from '../../../utils/taskmapable';
 import { innerDateFormat } from '../../../utils/tasks';
-import { TaskListContext } from './context';
+import { TaskListContext, UserOptionContext } from './context';
 import { DateView } from './dateview';
 
 const defaultYearViewProps = {
@@ -12,8 +12,9 @@ type YearViewProps = Readonly<typeof defaultYearViewProps>;
 export class YearView extends React.Component<YearViewProps> {
     render(): React.ReactNode {
         return (
-            <TaskListContext.Consumer>{({ taskList, entryOnDate }) => {
-                const tasksOfThisYear = taskList;
+            <TaskListContext.Consumer>{({ taskList, entryOnDate }) => (
+                <UserOptionContext.Consumer>{({ sort }) => {
+                    const tasksOfThisYear = taskList;
                 const daysOfThisYear: Set<string> = new Set();
                 tasksOfThisYear.forEach((t) => {
                     t.due && daysOfThisYear.add(t.due.format(innerDateFormat));
@@ -36,6 +37,14 @@ export class YearView extends React.Component<YearViewProps> {
                             .sort()
                             .map((d, i) => {
                                 const tasksOfThisDate = tasksOfThisYear.filter(TaskMapable.filterDate(moment(d)));
+                                try {
+                                    const sortFunc = new Function(`return ${sort}`)();
+                                    if (typeof sortFunc === "function") {
+                                        tasksOfThisDate.sort(sortFunc);
+                                    }
+                                } catch (e) {
+                                    console.error("Error evaluating sort function: ", e);
+                                }
                                 return (
                                     <TaskListContext.Provider value={{ taskList: tasksOfThisDate, entryOnDate: entryOnDate }} key={i}>
                                         <DateView date={moment(d)} key={i} />
@@ -43,7 +52,9 @@ export class YearView extends React.Component<YearViewProps> {
                                 )
                             })}
                     </div>)
-            }}
+                }}
+                </UserOptionContext.Consumer>
+            )}
             </TaskListContext.Consumer>
         );
     }
