@@ -152,13 +152,15 @@ class StripWithIcon extends React.Component<StripWithIconProps> {
     render(): React.ReactNode {
         return (
             <div className='timeline' >
-                <input id="statusMarker" type="checkbox" className={this.props.useBuiltinStyle ? "icon" : ""}
+                <input type="checkbox" className={this.props.useBuiltinStyle ? "icon" : ""}
                     data-task={this.props.marker}
-                    defaultChecked={this.props.marker !== ' '} onClick={() => {
+                    checked={this.props.marker !== ' '} 
+                    readOnly={true}
+                    onClick={() => {
                         if (!this.props.useBuiltinStyle) this.props.onToggle();
                     }}></input>
                 {this.props.useBuiltinStyle &&
-                    <label htmlFor="statusMarker" className="icon" onClick={() => {
+                    <label className="icon" onClick={() => {
                         if (this.props.useBuiltinStyle) this.props.onToggle();
                     }}>{Icons.getTaskStatusIcon(this.props.status)}</label>}
             </div>
