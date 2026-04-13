@@ -259,30 +259,46 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
             targetDate = todayStr;
         }
 
+        const updateTaskDate = async (newDateStr: string, actionLabel: string) => {
+          this.app.vault.adapter.read(path).then(content => {
+            const lines = content.split('\n');
+            let line = lines[position.start.line];
+            
+            const scheduledRegex = /[⏳⌛] *(\d{4}-\d{2}-\d{2})/;
+            if (scheduledRegex.test(line)) {
+              line = line.replace(scheduledRegex, `⏳ ${newDateStr}`);
+            } else {
+              line = line + ` ⏳ ${newDateStr}`;
+            }
+            
+            lines[position.start.line] = line;
+            this.app.vault.adapter.write(path, lines.join('\n')).then(() => {
+              new Notice(`Task ${actionLabel.toLowerCase()}!`);
+            }).catch(reason => {
+              new Notice("Error when writing tasks: " + reason, 5000);
+            });
+          }).catch(reason => new Notice("Error when reading file " + path + "." + reason, 5000));
+        };
+
         menu.addItem((submenu) => {
-            submenu
-                .setTitle(label)
-                .setIcon('calendar-clock')
-                .onClick(async () => {
-                    this.app.vault.adapter.read(path).then(content => {
-                        const lines = content.split('\n');
-                        let line = lines[position.start.line];
-                        
-                        const scheduledRegex = /[⏳⌛] *(\d{4}-\d{2}-\d{2})/;
-                        if (scheduledRegex.test(line)) {
-                            line = line.replace(scheduledRegex, `⏳ ${targetDate}`);
-                        } else {
-                            line = line + ` ⏳ ${targetDate}`;
-                        }
-                        
-                        lines[position.start.line] = line;
-                        this.app.vault.adapter.write(path, lines.join('\n')).then(() => {
-                            new Notice(`Task ${label.toLowerCase()}!`);
-                        }).catch(reason => {
-                            new Notice("Error when writing tasks: " + reason, 5000);
-                        });
-                    }).catch(reason => new Notice("Error when reading file " + path + "." + reason, 5000));
-                });
+          submenu
+            .setTitle(label)
+            .setIcon('calendar-clock')
+            .onClick(() => updateTaskDate(targetDate, label));
+        });
+
+        menu.addItem((submenu) => {
+          submenu
+            .setTitle("Postpone 7 days")
+            .setIcon('calendar-clock')
+            .onClick(() => updateTaskDate(moment().add(7, 'days').format('YYYY-MM-DD'), "Postpone 7 days"));
+        });
+
+        menu.addItem((submenu) => {
+          submenu
+            .setTitle("Postpone to 1st of next month")
+            .setIcon('calendar-clock')
+            .onClick(() => updateTaskDate(moment().add(1, 'months').startOf('month').format('YYYY-MM-DD'), "Postpone to 1st of next month"));
         });
 
         const tagPalette = this.state.userOptions.tagColorPalette;
