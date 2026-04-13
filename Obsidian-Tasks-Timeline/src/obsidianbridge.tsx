@@ -285,6 +285,39 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
                 });
         });
 
+        const tagPalette = this.state.userOptions.tagColorPalette;
+        const coloredTags = Object.keys(tagPalette);
+        if (coloredTags.length > 0) {
+            menu.addSeparator();
+            coloredTags.forEach(tag => {
+                menu.addItem(menuItem => {
+                    menuItem
+                        .setTitle(`Set Tag to ${tag}`)
+                        .setIcon('hashtag')
+                        .onClick(async () => {
+                            this.app.vault.adapter.read(path).then(content => {
+                                const lines = content.split('\n');
+                                let line = lines[position.start.line];
+                                
+                                const firstExistingUserTag = coloredTags.find(t => line.includes(t));
+                                if (firstExistingUserTag) {
+                                    line = line.replace(firstExistingUserTag, tag);
+                                } else {
+                                    line = line + ` ${tag}`;
+                                }
+                                
+                                lines[position.start.line] = line;
+                                this.app.vault.adapter.write(path, lines.join('\n')).then(() => {
+                                    new Notice(`Task tag updated to ${tag}!`);
+                                }).catch(reason => {
+                                    new Notice("Error when writing tasks: " + reason, 5000);
+                                });
+                            }).catch(reason => new Notice("Error when reading file " + path + "." + reason, 5000));
+                        });
+                });
+            });
+        }
+
         menu.showAtMouseEvent(e.nativeEvent);
     }
 
