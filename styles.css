@@ -575,15 +575,16 @@ If your plugin does not need CSS, delete this file.
 }
 
 /* Filter */
-.taskido.todoFilter .year:not([data-types~="due"]):not([data-types~="scheduled"]):not([data-types~="process"]):not([data-types~="start"]) {
+.taskido.todoFilter .year:not([data-types~="due"]):not([data-types~="scheduled"]):not([data-types~="process"]):not([data-types~="start"]):not([data-types~="overdue"]):not([data-types~="unplanned"]) {
 	display: none;
 }
 
-.taskido.todoFilter .details:not([data-types~="due"]):not([data-types~="scheduled"]):not([data-types~="process"]):not([data-types~="start"]) {
+.taskido.todoFilter .details:not([data-types~="due"]):not([data-types~="scheduled"]):not([data-types~="process"]):not([data-types~="start"]):not([data-types~="overdue"]):not([data-types~="unplanned"]) {
 	display: none;
 }
 
-.taskido.todoFilter .task:not(.due, .scheduled, .process, .start) {
+.taskido.todoFilter .task.done,
+.taskido.todoFilter .task.cancelled {
 	display: none;
 }
 

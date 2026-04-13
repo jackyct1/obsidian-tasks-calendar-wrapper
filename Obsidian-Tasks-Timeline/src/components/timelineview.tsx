@@ -73,13 +73,20 @@ export class TimelineView extends React.Component<TimelineProps, TimelineStates>
         const firstDay = sortedDatas.first();
         const lastDay = sortedDatas.last();
 
-        //const taskOfToday = taskList.filter(TaskMapable.filterDate(moment()));
+        const todayTasks = taskList.filter(TaskMapable.filterDate(moment()));
         const overdueCount: number = taskList.filter(t => t.status === TaskStatus.overdue).length;
         const unplannedCount: number = taskList.filter(t => t.status === TaskStatus.unplanned).length;
         const completedCount: number = taskList.filter(t => t.status === TaskStatus.done).length;
         const cancelledCount: number = taskList.filter(t => t.status === TaskStatus.cancelled).length;
         // .due, .scheduled, .process, .start
         const todoCount: number = taskList.length - unplannedCount - completedCount - cancelledCount - overdueCount;
+        // When "Focus on Today" is active, count only today's tasks in todo status
+        const todayTodoCount: number = todayTasks.filter(
+            t => t.status !== TaskStatus.done &&
+                t.status !== TaskStatus.cancelled &&
+                t.status !== TaskStatus.unplanned &&
+                t.status !== TaskStatus.overdue
+        ).length;
 
         const styles = new Array<string>;
         if (!this.props.userOptions.useCounters) styles.push("noCounters");
@@ -133,7 +140,7 @@ export class TimelineView extends React.Component<TimelineProps, TimelineStates>
                         counters: [
                             {
                                 onClick: () => { this.handleCounterFilterClick('todoFilter') },
-                                cnt: todoCount,
+                                cnt: this.state.todayFocus ? todayTodoCount : todoCount,
                                 label: "Todo",
                                 id: "todo",
                                 ariaLabel: "Todo Tasks"
