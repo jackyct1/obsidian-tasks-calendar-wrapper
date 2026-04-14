@@ -53,7 +53,7 @@ export class TaskItemView extends React.Component<TaskItemProps, TaskItemState> 
                         callbacks.handleOpenFile(path, position);
                     };
                     const onToggleTask = () => {
-                        callbacks.handleCompleteTask(path, position);
+                        callbacks.handleCompleteTask(path, position, item);
                     };
                     const onModifyTask = () => {
                         callbacks.handleModifyTask(path, position);

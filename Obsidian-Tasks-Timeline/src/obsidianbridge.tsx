@@ -8,6 +8,52 @@ import { TaskDataModel } from '../../utils/tasks';
 import { QuickEntryHandlerContext, TaskItemEventHandlersContext } from './components/context';
 import { TimelineView } from './components/timelineview';
 
+/**
+ * Calculates the next recurrence date from a rule string and a reference date.
+ * Returns null if the rule cannot be parsed.
+ */
+function calculateNextRecurrenceDate(rule: string, refDate: moment.Moment): moment.Moment | null {
+    const r = rule.toLowerCase().trim();
+
+    // "every N days/weeks/months/years"
+    const nUnits = r.match(/^every\s+(\d+)\s+(day|week|month|year)s?/i);
+    if (nUnits) {
+        return refDate.clone().add(parseInt(nUnits[1]), nUnits[2] as moment.unitOfTime.DurationConstructor);
+    }
+    // "every day/week/month/year"
+    const oneUnit = r.match(/^every\s+(day|week|month|year)s?/i);
+    if (oneUnit) {
+        return refDate.clone().add(1, oneUnit[1] as moment.unitOfTime.DurationConstructor);
+    }
+    // "every monday/tuesday/..."
+    const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const wdMatch = r.match(/^every\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)/i);
+    if (wdMatch) {
+        const targetDay = weekdays.indexOf(wdMatch[1].toLowerCase());
+        const next = refDate.clone().add(1, 'days');
+        while (next.day() !== targetDay) next.add(1, 'days');
+        return next;
+    }
+    return null;
+}
+
+/**
+ * Returns the number of lines starting at startLine that belong to the task
+ * (the task line itself plus any immediately-following indented sub-lines).
+ */
+function collectTaskBlock(lines: string[], startLine: number): number {
+    const taskIndent = (lines[startLine].match(/^(\s*)/) || ['', ''])[1].length;
+    let lastNonBlankIndented = startLine;
+    let i = startLine + 1;
+    while (i < lines.length) {
+        if (lines[i].trim() === '') { i++; continue; }
+        const indent = (lines[i].match(/^(\s*)/) || ['', ''])[1].length;
+        if (indent > taskIndent) { lastNonBlankIndented = i; i++; }
+        else break;
+    }
+    return lastNonBlankIndented - startLine + 1;
+}
+
 const defaultObsidianBridgeProps = {
     plugin: {} as ItemView,
     userOptionModel: new Model({ ...defaultUserOptions }) as Model,
@@ -37,6 +83,7 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
         this.handleFilterEnable = this.handleFilterEnable.bind(this);
         this.handleContextMenu = this.handleContextMenu.bind(this);
         this.handleArchiveTask = this.handleArchiveTask.bind(this);
+        this.handleCompleteAndArchiveTask = this.handleCompleteAndArchiveTask.bind(this);
 
         //this.adapter = new ObsidianTaskAdapter(this.app);
 
@@ -161,24 +208,63 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
         this.handleOpenFile(path, position, true);
     }
 
-    handleCompleteTask(path: string, position: Pos) {
-        this.app.workspace.openLinkText('', path).then(() => {
-            const file = this.app.workspace.getActiveFile();
-            this.app.workspace.getLeaf().openFile(file!, { state: { mode: "source" } });
-            this.app.workspace.activeEditor?.editor?.setSelection(
-                { line: position.start.line, ch: position.start.col },
-                { line: position.start.line, ch: position.start.col }
-            );
-            if (!this.app.workspace.activeEditor?.editor?.hasFocus())
-                this.app.workspace.activeEditor?.editor?.focus();
-            const editor = this.app.workspace.activeEditor?.editor;
-            if (editor) {
-                const view = this.app.workspace.getLeaf().view;
-                //@ts-ignore
-                this.app.commands.commands['obsidian-tasks-plugin:toggle-done']
-                    .editorCheckCallback(false, editor, view);
+    handleCompleteTask(path: string, position: Pos, item: TaskDataModel) {
+        this.app.vault.adapter.read(path).then(content => {
+            const lines = content.split('\n');
+            const originalLine = lines[position.start.line];
+            if (!originalLine) {
+                new Notice("Could not find task line.", 5000);
+                return;
             }
-        })
+
+            const isCompleting = item.statusMarker === ' ' || item.statusMarker === '';
+
+            if (isCompleting) {
+                // Mark as done
+                let doneLine = originalLine.replace(/\[[ ]\]/, '[x]');
+                if (!/✅\s*\d{4}-\d{2}-\d{2}/.test(doneLine)) {
+                    doneLine = doneLine + ` ✅ ${moment().format('YYYY-MM-DD')}`;
+                }
+                lines[position.start.line] = doneLine;
+
+                // Handle recurring task: insert next occurrence before the completed line
+                if (item.recurrence) {
+                    const refDate = item.due || item.scheduled || item.start;
+                    if (refDate) {
+                        const nextDate = calculateNextRecurrenceDate(item.recurrence, refDate);
+                        if (nextDate) {
+                            const nextDateStr = nextDate.format('YYYY-MM-DD');
+                            // Build next task from original (pre-completion) line
+                            let newLine = originalLine
+                                .replace(/\[.\]/, '[ ]')
+                                .replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, '');
+                            if (item.due) {
+                                newLine = newLine.replace(/[📅📆🗓]\s*\d{4}-\d{2}-\d{2}/u, `📅 ${nextDateStr}`);
+                            } else if (item.scheduled) {
+                                newLine = newLine.replace(/[⏳⌛]\s*\d{4}-\d{2}-\d{2}/u, `⏳ ${nextDateStr}`);
+                            } else if (item.start) {
+                                newLine = newLine.replace(/🛫\s*\d{4}-\d{2}-\d{2}/u, `🛫 ${nextDateStr}`);
+                            }
+                            // Insert the new task before the completed one
+                            lines.splice(position.start.line, 0, newLine);
+                        } else {
+                            new Notice("Recurring task toggled, but recurrence rule could not be parsed. Please create the next occurrence manually.", 5000);
+                        }
+                    }
+                }
+            } else {
+                // Mark as undone
+                let undoneLine = originalLine.replace(/\[.\]/, '[ ]');
+                undoneLine = undoneLine.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, '');
+                lines[position.start.line] = undoneLine;
+            }
+
+            this.app.vault.adapter.write(path, lines.join('\n')).catch(reason => {
+                new Notice("Error toggling task: " + reason, 5000);
+            });
+        }).catch(reason => {
+            new Notice("Error reading file " + path + ": " + reason, 5000);
+        });
     }
 
     handleArchiveTask(path: string, position: Pos, item: TaskDataModel) {
@@ -194,13 +280,14 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
 
         this.app.vault.adapter.read(path).then(content => {
             const lines = content.split('\n');
-            const taskLine = lines[position.start.line];
-            if (!taskLine) {
+            if (!lines[position.start.line]) {
                 new Notice("Could not find task line.", 5000);
                 return;
             }
-            // Remove the task line from the source file
-            lines.splice(position.start.line, 1);
+            // Remove the task line plus any indented sub-lines that belong to it
+            const numLines = collectTaskBlock(lines, position.start.line);
+            const archiveLines = lines.splice(position.start.line, numLines);
+            const taskBlock = archiveLines.join('\n');
             // Collapse any triple+ blank lines left behind
             const newContent = lines.join('\n').replace(/\n{3,}/g, '\n\n');
 
@@ -209,14 +296,14 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
                 const appendToArchive = exists
                     ? this.app.vault.adapter.read(archiveFilePath).then(archiveContent => {
                         const separator = archiveContent.endsWith('\n') ? '' : '\n';
-                        return this.app.vault.adapter.write(archiveFilePath, archiveContent + separator + taskLine + '\n');
+                        return this.app.vault.adapter.write(archiveFilePath, archiveContent + separator + taskBlock + '\n');
                     })
                     : this.app.vault.adapter.exists(folder).then(folderExists => {
                         if (folderExists) {
-                            return this.app.vault.create(archiveFilePath, taskLine + '\n');
+                            return this.app.vault.create(archiveFilePath, taskBlock + '\n');
                         }
                         return this.app.vault.createFolder(folder).then(() =>
-                            this.app.vault.create(archiveFilePath, taskLine + '\n')
+                            this.app.vault.create(archiveFilePath, taskBlock + '\n')
                         );
                     });
 
@@ -229,9 +316,75 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
         }).catch(reason => new Notice("Error reading file " + path + ": " + reason, 5000));
     }
 
+    handleCompleteAndArchiveTask(path: string, position: Pos, item: TaskDataModel) {
+        const { archiveFolder, archiveFileFormat } = this.state.userOptions;
+        if (!archiveFolder) {
+            new Notice("No archive folder configured. Please set one in the plugin settings.", 5000);
+            return;
+        }
+        const today = moment();
+        const fileName = today.format(archiveFileFormat || 'YYYY-MM-DD') + '.md';
+        const folder = archiveFolder.replace(/\/$/, '');
+        const archiveFilePath = folder + '/' + fileName;
+
+        this.app.vault.adapter.read(path).then(content => {
+            const lines = content.split('\n');
+            if (!lines[position.start.line]) {
+                new Notice("Could not find task line.", 5000);
+                return;
+            }
+            // Mark the task as done with today's completion date
+            let taskLine = lines[position.start.line];
+            taskLine = taskLine.replace(/\[[ ]\]/, '[x]');
+            if (!/✅\s*\d{4}-\d{2}-\d{2}/.test(taskLine)) {
+                taskLine = taskLine + ` ✅ ${today.format('YYYY-MM-DD')}`;
+            }
+            lines[position.start.line] = taskLine;
+
+            // Collect the completed task line plus any indented sub-lines
+            const numLines = collectTaskBlock(lines, position.start.line);
+            const archiveLines = lines.splice(position.start.line, numLines);
+            const taskBlock = archiveLines.join('\n');
+            // Collapse any triple+ blank lines left behind
+            const newContent = lines.join('\n').replace(/\n{3,}/g, '\n\n');
+
+            this.app.vault.adapter.exists(archiveFilePath).then(exists => {
+                const writeSource = this.app.vault.adapter.write(path, newContent);
+                const appendToArchive = exists
+                    ? this.app.vault.adapter.read(archiveFilePath).then(archiveContent => {
+                        const separator = archiveContent.endsWith('\n') ? '' : '\n';
+                        return this.app.vault.adapter.write(archiveFilePath, archiveContent + separator + taskBlock + '\n');
+                    })
+                    : this.app.vault.adapter.exists(folder).then(folderExists => {
+                        if (folderExists) {
+                            return this.app.vault.create(archiveFilePath, taskBlock + '\n');
+                        }
+                        return this.app.vault.createFolder(folder).then(() =>
+                            this.app.vault.create(archiveFilePath, taskBlock + '\n')
+                        );
+                    });
+
+                Promise.all([writeSource, appendToArchive]).then(() => {
+                    new Notice(`Task completed and archived to ${archiveFilePath}`);
+                }).catch(reason => {
+                    new Notice("Error archiving task: " + reason, 5000);
+                });
+            }).catch(reason => new Notice("Error checking archive file: " + reason, 5000));
+        }).catch(reason => new Notice("Error reading file " + path + ": " + reason, 5000));
+    }
+
     handleContextMenu(e: React.MouseEvent, path: string, position: Pos, item: TaskDataModel) {
         e.preventDefault();
         const menu = new Menu();
+
+        if (item.statusMarker !== 'x') {
+            menu.addItem((menuItem) => {
+                menuItem
+                    .setTitle("Complete and archive this task")
+                    .setIcon('archive')
+                    .onClick(() => this.handleCompleteAndArchiveTask(path, position, item));
+            });
+        }
 
         if (item.statusMarker === 'x') {
             menu.addItem((menuItem) => {
