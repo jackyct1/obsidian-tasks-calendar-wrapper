@@ -245,8 +245,12 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
                             } else if (item.start) {
                                 newLine = newLine.replace(/🛫\s*\d{4}-\d{2}-\d{2}/u, `🛫 ${nextDateStr}`);
                             }
-                            // Insert the new task before the completed one
-                            lines.splice(position.start.line, 0, newLine);
+                            // Collect any indented sub-lines that belong to this task so the
+                            // new recurring task gets its own copy of them.
+                            const blockSize = collectTaskBlock(lines, position.start.line);
+                            const subLines = lines.slice(position.start.line + 1, position.start.line + blockSize);
+                            // Insert the new task (+ its sub-lines) before the completed block
+                            lines.splice(position.start.line, 0, newLine, ...subLines);
                         } else {
                             new Notice("Recurring task toggled, but recurrence rule could not be parsed. Please create the next occurrence manually.", 5000);
                         }
@@ -333,15 +337,19 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
                 new Notice("Could not find task line.", 5000);
                 return;
             }
-            // Mark the task as done with today's completion date
+            // Capture sub-lines BEFORE any modifications so we can copy them to the new task.
             const originalLine = lines[position.start.line];
+            const originalBlockSize = collectTaskBlock(lines, position.start.line);
+            const subLines = lines.slice(position.start.line + 1, position.start.line + originalBlockSize);
+
+            // Mark the task as done with today's completion date
             let taskLine = originalLine.replace(/\[[ ]\]/, '[x]');
             if (!/✅\s*\d{4}-\d{2}-\d{2}/.test(taskLine)) {
                 taskLine = taskLine + ` ✅ ${today.format('YYYY-MM-DD')}`;
             }
             lines[position.start.line] = taskLine;
 
-            // For recurring tasks: insert next occurrence before the completed line
+            // For recurring tasks: insert next occurrence (+ its sub-lines) before the completed block
             let completedLineIdx = position.start.line;
             if (item.recurrence) {
                 const refDate = item.due || item.scheduled || item.start;
@@ -359,9 +367,10 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
                         } else if (item.start) {
                             newLine = newLine.replace(/🛫\s*\d{4}-\d{2}-\d{2}/u, `🛫 ${nextDateStr}`);
                         }
-                        // Insert the new task before the completed one; completed task shifts down by 1
-                        lines.splice(position.start.line, 0, newLine);
-                        completedLineIdx = position.start.line + 1;
+                        // Insert new task + its sub-line copies before the completed block.
+                        // The completed task now starts at position.start.line + 1 + subLines.length.
+                        lines.splice(position.start.line, 0, newLine, ...subLines);
+                        completedLineIdx = position.start.line + 1 + subLines.length;
                     } else {
                         new Notice("Recurring task: recurrence rule could not be parsed. Please create the next occurrence manually.", 5000);
                     }
