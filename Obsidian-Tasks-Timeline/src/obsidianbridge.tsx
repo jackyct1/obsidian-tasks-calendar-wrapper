@@ -34,6 +34,20 @@ function calculateNextRecurrenceDate(rule: string, refDate: moment.Moment): mome
         while (next.day() !== targetDay) next.add(1, 'days');
         return next;
     }
+    // "every [month] on the Nth" or "every [month] Nth"
+    // e.g. "every April on the 1st", "every january 15th"
+    const months = ['january', 'february', 'march', 'april', 'may', 'june',
+                    'july', 'august', 'september', 'october', 'november', 'december'];
+    const monthDayMatch = r.match(/^every\s+(january|february|march|april|may|june|july|august|september|october|november|december)(?:\s+on\s+the\s+|\s+)(\d+)(?:st|nd|rd|th)?/i);
+    if (monthDayMatch) {
+        const targetMonth = months.indexOf(monthDayMatch[1].toLowerCase()); // 0-indexed
+        const targetDay = parseInt(monthDayMatch[2]);
+        const candidate = refDate.clone().month(targetMonth).date(targetDay).startOf('day');
+        if (candidate.isAfter(refDate, 'day')) {
+            return candidate;
+        }
+        return candidate.add(1, 'year');
+    }
     return null;
 }
 
