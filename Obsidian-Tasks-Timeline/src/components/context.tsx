@@ -32,7 +32,7 @@ export const TodayFocusEventHandlersContext = React.createContext({
 
 export const TaskItemEventHandlersContext = React.createContext({
     handleOpenFile: (filePath: string, position: Pos) => { },
-    handleCompleteTask: (filePath: string, position: Pos) => { },
+    handleCompleteTask: (filePath: string, position: Pos, item: TaskDataModel) => { },
     handleTagClick: (tag: string) => { },
     handleModifyTask: undefined as any,
     handleContextMenu: (e: React.MouseEvent, path: string, position: Pos, item: TaskDataModel) => { },
