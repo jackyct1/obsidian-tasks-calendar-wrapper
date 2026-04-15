@@ -297,17 +297,21 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
 
             this.app.vault.adapter.exists(archiveFilePath).then(exists => {
                 const writeSource = this.app.vault.adapter.write(path, newContent);
+                const fileNameWithoutExt = fileName.replace(/\.md$/, '');
+                const header = '# ' + fileNameWithoutExt;
                 const appendToArchive = exists
                     ? this.app.vault.adapter.read(archiveFilePath).then(archiveContent => {
-                        const separator = archiveContent.endsWith('\n') ? '' : '\n';
-                        return this.app.vault.adapter.write(archiveFilePath, archiveContent + separator + taskBlock + '\n');
+                        const hasHeader = archiveContent.split('\n').some(line => line === header);
+                        const contentWithHeader = hasHeader ? archiveContent : header + '\n\n' + archiveContent;
+                        const separator = contentWithHeader.endsWith('\n') ? '' : '\n';
+                        return this.app.vault.adapter.write(archiveFilePath, contentWithHeader + separator + taskBlock + '\n');
                     })
                     : this.app.vault.adapter.exists(folder).then(folderExists => {
                         if (folderExists) {
-                            return this.app.vault.create(archiveFilePath, taskBlock + '\n');
+                            return this.app.vault.create(archiveFilePath, header + '\n\n' + taskBlock + '\n');
                         }
                         return this.app.vault.createFolder(folder).then(() =>
-                            this.app.vault.create(archiveFilePath, taskBlock + '\n')
+                            this.app.vault.create(archiveFilePath, header + '\n\n' + taskBlock + '\n')
                         );
                     });
 
@@ -386,17 +390,21 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
 
             this.app.vault.adapter.exists(archiveFilePath).then(exists => {
                 const writeSource = this.app.vault.adapter.write(path, newContent);
+                const fileNameWithoutExt = fileName.replace(/\.md$/, '');
+                const header = '# ' + fileNameWithoutExt;
                 const appendToArchive = exists
                     ? this.app.vault.adapter.read(archiveFilePath).then(archiveContent => {
-                        const separator = archiveContent.endsWith('\n') ? '' : '\n';
-                        return this.app.vault.adapter.write(archiveFilePath, archiveContent + separator + taskBlock + '\n');
+                        const hasHeader = archiveContent.split('\n').some(line => line === header);
+                        const contentWithHeader = hasHeader ? archiveContent : header + '\n\n' + archiveContent;
+                        const separator = contentWithHeader.endsWith('\n') ? '' : '\n';
+                        return this.app.vault.adapter.write(archiveFilePath, contentWithHeader + separator + taskBlock + '\n');
                     })
                     : this.app.vault.adapter.exists(folder).then(folderExists => {
                         if (folderExists) {
-                            return this.app.vault.create(archiveFilePath, taskBlock + '\n');
+                            return this.app.vault.create(archiveFilePath, header + '\n\n' + taskBlock + '\n');
                         }
                         return this.app.vault.createFolder(folder).then(() =>
-                            this.app.vault.create(archiveFilePath, taskBlock + '\n')
+                            this.app.vault.create(archiveFilePath, header + '\n\n' + taskBlock + '\n')
                         );
                     });
 
