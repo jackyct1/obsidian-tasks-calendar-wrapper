@@ -334,16 +334,43 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
                 return;
             }
             // Mark the task as done with today's completion date
-            let taskLine = lines[position.start.line];
-            taskLine = taskLine.replace(/\[[ ]\]/, '[x]');
+            const originalLine = lines[position.start.line];
+            let taskLine = originalLine.replace(/\[[ ]\]/, '[x]');
             if (!/✅\s*\d{4}-\d{2}-\d{2}/.test(taskLine)) {
                 taskLine = taskLine + ` ✅ ${today.format('YYYY-MM-DD')}`;
             }
             lines[position.start.line] = taskLine;
 
+            // For recurring tasks: insert next occurrence before the completed line
+            let completedLineIdx = position.start.line;
+            if (item.recurrence) {
+                const refDate = item.due || item.scheduled || item.start;
+                if (refDate) {
+                    const nextDate = calculateNextRecurrenceDate(item.recurrence, refDate);
+                    if (nextDate) {
+                        const nextDateStr = nextDate.format('YYYY-MM-DD');
+                        let newLine = originalLine
+                            .replace(/\[.\]/, '[ ]')
+                            .replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, '');
+                        if (item.due) {
+                            newLine = newLine.replace(/[📅📆🗓]\s*\d{4}-\d{2}-\d{2}/u, `📅 ${nextDateStr}`);
+                        } else if (item.scheduled) {
+                            newLine = newLine.replace(/[⏳⌛]\s*\d{4}-\d{2}-\d{2}/u, `⏳ ${nextDateStr}`);
+                        } else if (item.start) {
+                            newLine = newLine.replace(/🛫\s*\d{4}-\d{2}-\d{2}/u, `🛫 ${nextDateStr}`);
+                        }
+                        // Insert the new task before the completed one; completed task shifts down by 1
+                        lines.splice(position.start.line, 0, newLine);
+                        completedLineIdx = position.start.line + 1;
+                    } else {
+                        new Notice("Recurring task: recurrence rule could not be parsed. Please create the next occurrence manually.", 5000);
+                    }
+                }
+            }
+
             // Collect the completed task line plus any indented sub-lines
-            const numLines = collectTaskBlock(lines, position.start.line);
-            const archiveLines = lines.splice(position.start.line, numLines);
+            const numLines = collectTaskBlock(lines, completedLineIdx);
+            const archiveLines = lines.splice(completedLineIdx, numLines);
             const taskBlock = archiveLines.join('\n');
             // Collapse any triple+ blank lines left behind
             const newContent = lines.join('\n').replace(/\n{3,}/g, '\n\n');
