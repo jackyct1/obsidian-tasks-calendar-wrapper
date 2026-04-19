@@ -1,4 +1,4 @@
-import { AbstractInputSuggest, App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from "obsidian";
+import { AbstractInputSuggest, App, Modal, Notice, Plugin, PluginSettingTab, Setting, TFolder } from "obsidian";
 import { TaskRegularExpressions } from "utils/tasks";
 import TasksCalendarWrapper from "./main";
 const sortOptions = {

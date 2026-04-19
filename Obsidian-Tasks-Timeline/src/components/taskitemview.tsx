@@ -49,7 +49,15 @@ export class TaskItemView extends React.Component<TaskItemProps, TaskItemState> 
         return (
             <TaskItemEventHandlersContext.Consumer>{
                 callbacks => {
-                    const openTaskFile = () => {
+                    const openTaskFile = (e: React.MouseEvent) => {
+                        // If the user clicks on a link, don't open the task file
+                        let target = e.target as HTMLElement | null;
+                        while (target && target !== e.currentTarget) {
+                            if (target.tagName.toLowerCase() === 'a') {
+                                return;
+                            }
+                            target = target.parentElement;
+                        }
                         callbacks.handleOpenFile(path, position);
                     };
                     const onToggleTask = () => {
@@ -131,10 +139,34 @@ const defaultContentProps = {
 }
 type ContentProps = Readonly<typeof defaultContentProps>
 class Content extends React.Component<ContentProps> {
+    private containerRef = React.createRef<HTMLSpanElement>();
+
+    componentDidMount() {
+        this.renderMarkdown();
+    }
+
+    componentDidUpdate(prevProps: ContentProps) {
+        if (prevProps.display !== this.props.display || prevProps.fileName !== this.props.fileName) {
+            this.renderMarkdown();
+        }
+    }
+
+    renderMarkdown() {
+        if (this.containerRef.current) {
+            this.containerRef.current.empty();
+            MarkdownRenderer.renderMarkdown(this.props.display, this.containerRef.current, this.props.fileName, TasksTimelineView.view!).then(() => {
+                // MarkdownRenderer wraps everything in a paragraph block.
+                // We want to remove the block and make it inline.
+                const child = this.containerRef.current?.firstElementChild;
+                if (child && child.tagName === 'P') {
+                    this.containerRef.current!.innerHTML = child.innerHTML;
+                }
+            });
+        }
+    }
+
     render(): React.ReactNode {
-        const cont = createEl("a")
-        MarkdownRenderer.renderMarkdown(this.props.display, cont, this.props.fileName, TasksTimelineView.view!);
-        return <a dangerouslySetInnerHTML={{ __html: cont.firstElementChild!.innerHTML }} />
+        return <span ref={this.containerRef} className="markdown-rendered-content" />
     }
 }
 
