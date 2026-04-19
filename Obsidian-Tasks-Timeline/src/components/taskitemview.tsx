@@ -72,7 +72,12 @@ export class TaskItemView extends React.Component<TaskItemProps, TaskItemState> 
                                 <StripWithIcon onToggle={onToggleTask} useBuiltinStyle={useBuiltinStyle}
                                     marker={item.statusMarker} status={item.status} />
                                 <div className='lines' onClick={openTaskFile}>
-                                    <div className="content">
+                                    <div className="content" onClick={(e) => {
+                                        const target = e.target as HTMLElement;
+                                        if (target.tagName.toLowerCase() === 'a' || target.closest('a')) {
+                                            e.stopPropagation();
+                                        }
+                                    }}>
                                         <Content display={display} fileName={item.path} />
                                     </div>
                                     <div className='line info'>
@@ -131,10 +136,36 @@ const defaultContentProps = {
 }
 type ContentProps = Readonly<typeof defaultContentProps>
 class Content extends React.Component<ContentProps> {
+    private containerRef = React.createRef<HTMLSpanElement>();
+
+    componentDidMount() {
+        this.renderMarkdown();
+    }
+
+    componentDidUpdate(prevProps: ContentProps) {
+        if (prevProps.display !== this.props.display || prevProps.fileName !== this.props.fileName) {
+            this.renderMarkdown();
+        }
+    }
+
+    renderMarkdown() {
+        if (this.containerRef.current) {
+            this.containerRef.current.empty();
+            MarkdownRenderer.renderMarkdown(this.props.display, this.containerRef.current, this.props.fileName, TasksTimelineView.view!).then(() => {
+                // MarkdownRenderer renders inside a <p> tag, we unwrap it to match previous inline structure
+                const p = this.containerRef.current?.querySelector('p');
+                if (p) {
+                    while (p.firstChild) {
+                        this.containerRef.current!.insertBefore(p.firstChild, p);
+                    }
+                    p.remove();
+                }
+            });
+        }
+    }
+
     render(): React.ReactNode {
-        const cont = createEl("a")
-        MarkdownRenderer.renderMarkdown(this.props.display, cont, this.props.fileName, TasksTimelineView.view!);
-        return <a dangerouslySetInnerHTML={{ __html: cont.firstElementChild!.innerHTML }} />
+        return <span ref={this.containerRef} className="markdown-rendered-content" />
     }
 }
 
