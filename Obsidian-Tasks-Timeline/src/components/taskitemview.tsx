@@ -1,5 +1,5 @@
 import moment, { Moment } from "moment";
-import { MarkdownRenderer } from "obsidian";
+import { MarkdownRenderer, Platform } from "obsidian";
 import * as React from "react";
 import { getFileTitle } from "../../../dataview-util/dataview";
 import { TasksTimelineView } from "../../../src/views";
@@ -131,10 +131,34 @@ const defaultContentProps = {
 }
 type ContentProps = Readonly<typeof defaultContentProps>
 class Content extends React.Component<ContentProps> {
+    private handleClick = (e: React.MouseEvent<HTMLElement>) => {
+        if (!Platform.isMobile) return;
+        const target = (e.target as HTMLElement).closest('a');
+        if (!target) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const dataHref = target.getAttribute('data-href');
+        const href = target.getAttribute('href');
+        const app = TasksTimelineView.view!.app;
+
+        if (dataHref) {
+            // Internal Obsidian link ([[page]] or [[page#heading]])
+            app.workspace.openLinkText(dataHref, this.props.fileName, false);
+        } else if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+            // External link
+            window.open(href, '_blank');
+        }
+    };
+
     render(): React.ReactNode {
         const cont = createEl("a")
         MarkdownRenderer.renderMarkdown(this.props.display, cont, this.props.fileName, TasksTimelineView.view!);
-        return <a dangerouslySetInnerHTML={{ __html: cont.firstElementChild!.innerHTML }} />
+        return <div
+            dangerouslySetInnerHTML={{ __html: cont.firstElementChild!.innerHTML }}
+            onClick={this.handleClick}
+        />
     }
 }
 
