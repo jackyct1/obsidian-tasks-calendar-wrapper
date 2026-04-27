@@ -302,9 +302,29 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
                 new Notice("Could not find task line.", 5000);
                 return;
             }
+
+            // The cached position may be stale: if the user completed a recurring task
+            // first, a new occurrence was inserted above the completed task (shifting it
+            // down by 1 + subLines.length lines). Search forward to find the real [x] task.
+            let targetLine = position.start.line;
+            if (!/\[[xX]\]/.test(lines[targetLine])) {
+                let found = false;
+                for (let i = targetLine + 1; i < Math.min(lines.length, targetLine + 10); i++) {
+                    if (/\[[xX]\]/.test(lines[i])) {
+                        targetLine = i;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    new Notice("Could not find completed task to archive.", 5000);
+                    return;
+                }
+            }
+
             // Remove the task line plus any indented sub-lines that belong to it
-            const numLines = collectTaskBlock(lines, position.start.line);
-            const archiveLines = lines.splice(position.start.line, numLines);
+            const numLines = collectTaskBlock(lines, targetLine);
+            const archiveLines = lines.splice(targetLine, numLines);
             const taskBlock = archiveLines.join('\n');
             // Collapse any triple+ blank lines left behind
             const newContent = lines.join('\n').replace(/\n{3,}/g, '\n\n');
