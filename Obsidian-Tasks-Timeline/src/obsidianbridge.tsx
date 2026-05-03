@@ -4,7 +4,7 @@ import { App, ItemView, Menu, Notice, Pos } from 'obsidian';
 import * as React from 'react';
 import { UserOption, defaultUserOptions } from '../../src/settings';
 import * as TaskMapable from '../../utils/taskmapable';
-import { TaskDataModel } from '../../utils/tasks';
+import { TaskDataModel, TasksPrioritySymbolToLabel } from '../../utils/tasks';
 import { QuickEntryHandlerContext, TaskItemEventHandlersContext } from './components/context';
 import { TimelineView } from './components/timelineview';
 
@@ -473,6 +473,8 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
             });
         }
 
+        menu.addSeparator();
+
         const todayStr = moment().format('YYYY-MM-DD');
         const tomorrowStr = moment().add(1, 'days').format('YYYY-MM-DD');
 
@@ -532,6 +534,47 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
             .onClick(() => updateTaskDate(moment().add(1, 'months').startOf('month').format('YYYY-MM-DD'), "Postpone to 1st of next month"));
         });
 
+        menu.addSeparator();
+
+        const priorityEntries: [string, string][] = [
+            ['🔺', 'Highest'], ['⏫', 'High'], ['🔼', 'Medium'],
+            ['🔽', 'Low'], ['⏬', 'Lowest'], ['', 'No'],
+        ];
+        const priorityDetectRegex = /[🔺⏫🔼🔽⏬]/u;
+        const priorityRemoveRegex = / ?[🔺⏫🔼🔽⏬]/u;
+
+        priorityEntries.forEach(([symbol, label]) => {
+            const title = symbol ? `${label} ${symbol}` : 'No priority';
+            menu.addItem(menuItem => {
+                menuItem
+                    .setTitle(title)
+                    .setIcon('signal')
+                    .onClick(() => {
+                        this.app.vault.adapter.read(path).then(content => {
+                            const lines = content.split('\n');
+                            let line = lines[position.start.line];
+
+                            if (priorityDetectRegex.test(line)) {
+                                if (symbol) {
+                                    line = line.replace(priorityDetectRegex, symbol);
+                                } else {
+                                    line = line.replace(priorityRemoveRegex, '');
+                                }
+                            } else if (symbol) {
+                                line = line + ` ${symbol}`;
+                            }
+
+                            lines[position.start.line] = line;
+                            this.app.vault.adapter.write(path, lines.join('\n')).then(() => {
+                                new Notice(`Task priority set to ${label}!`);
+                            }).catch(reason => {
+                                new Notice("Error when writing tasks: " + reason, 5000);
+                            });
+                        }).catch(reason => new Notice("Error when reading file " + path + "." + reason, 5000));
+                    });
+            });
+        });
+
         const tagPalette = this.state.userOptions.tagColorPalette;
         const coloredTags = Object.keys(tagPalette);
         if (coloredTags.length > 0) {
@@ -545,14 +588,14 @@ export class ObsidianBridge extends React.Component<ObsidianBridgeProps, Obsidia
                             this.app.vault.adapter.read(path).then(content => {
                                 const lines = content.split('\n');
                                 let line = lines[position.start.line];
-                                
+
                                 const firstExistingUserTag = coloredTags.find(t => line.includes(t));
                                 if (firstExistingUserTag) {
                                     line = line.replace(firstExistingUserTag, tag);
                                 } else {
                                     line = line + ` ${tag}`;
                                 }
-                                
+
                                 lines[position.start.line] = line;
                                 this.app.vault.adapter.write(path, lines.join('\n')).then(() => {
                                     new Notice(`Task tag updated to ${tag}!`);
